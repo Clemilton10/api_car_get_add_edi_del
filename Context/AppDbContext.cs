@@ -1,12 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using MyCar.Models;
-using Microsoft.Extensions.Configuration;
-using System.IO;
 
 namespace MyCar.Context;
 
-public class AppDbContext : DbContext
+public class CarDbContext : DbContext
 {
+	public CarDbContext(DbContextOptions<CarDbContext> options) : base(options)
+	{
+	}
+
 	public DbSet<Car> Cars { get; set; }
 	protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 	{

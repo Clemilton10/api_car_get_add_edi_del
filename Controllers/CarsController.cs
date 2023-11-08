@@ -1,31 +1,41 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
+using System.Linq.Dynamic.Core;
+using MyCar.Context;
 
 namespace MyCars.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-public class CarsController : ControllerBase
+public class apiController : ControllerBase
 {
-	private readonly MyCar.Context.AppDbContext db;
+	private readonly CarDbContext db;
 
-	public CarsController()
+	public apiController(CarDbContext _db)
 	{
-		db = new MyCar.Context.AppDbContext();
+		db = _db;
 	}
 
 	[HttpGet]
 	public async Task<IActionResult> GetCars()
 	{
-		return Ok(new
+		try
 		{
-			success = true,
-			data = await db.Cars.ToListAsync()
-		});
+			return Ok(new
+			{
+				success = true,
+				data = await db.Cars.ToListAsync()
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Houve algum erro: {ex.GetType}\n\n\n\n{ex.StackTrace}\n\n\n\n{ex.StackTrace}");
+			return StatusCode(202, $"Houve algum erro: {ex.GetType}\n\n\n\n{ex.StackTrace}\n\n\n\n{ex.StackTrace}");
+		}
 	}
 
 	[HttpPost]
-	public async Task<IActionResult> PostCars([FromBody] MyCar.Models.CarPost data)
+	public async Task<IActionResult> PostCar([FromBody] MyCar.Models.CarPost data)
 	{
 		if (
 			data == null ||
@@ -52,7 +62,7 @@ public class CarsController : ControllerBase
 			Price = data.Price
 		};
 		db.Cars.Add(o);
-		db.SaveChanges();
+		await db.SaveChangesAsync();
 		return Ok(
 			new
 			{
@@ -64,7 +74,7 @@ public class CarsController : ControllerBase
 	}
 
 	[HttpPut("{id}")]
-	public async Task<IActionResult> PutCars(int id, [FromBody] MyCar.Models.CarPost data)
+	public async Task<IActionResult> PutCar(int id, [FromBody] MyCar.Models.CarPost data)
 	{
 		if (
 			data == null ||
@@ -99,7 +109,7 @@ public class CarsController : ControllerBase
 		rs.Plate = data.Plate;
 		rs.Brand = data.Brand;
 		rs.Price = data.Price;
-		db.SaveChanges();
+		await db.SaveChangesAsync();
 		return Ok(
 			new
 			{
@@ -111,7 +121,7 @@ public class CarsController : ControllerBase
 	}
 
 	[HttpDelete("{id}")]
-	public async Task<IActionResult> DeleteCars(int id)
+	public async Task<IActionResult> DeleteCar(int id)
 	{
 		var rs = db.Cars.FirstOrDefault(c => c.Id == id);
 		if (rs == null)
@@ -126,7 +136,7 @@ public class CarsController : ControllerBase
 			);
 		}
 		db.Cars.Remove(rs);
-		db.SaveChanges();
+		await db.SaveChangesAsync();
 		return Ok(
 			new
 			{
@@ -137,14 +147,122 @@ public class CarsController : ControllerBase
 		);
 	}
 }
+
+[Route("api/filter")]
+public class apiFilter : ControllerBase
+{
+	private readonly CarDbContext db;
+
+	public apiFilter(CarDbContext _db)
+	{
+		db = _db;
+	}
+
+	[HttpPost]
+	public async Task<IActionResult> PostFilter([FromBody] MyCar.Models.CarFilter data)
+	{
+		/*if (!ModelState.IsValid)
+		{
+			return BadRequest(ModelState);
+		}*/
+		try
+		{
+			string where = "";
+			if (
+				data != null &&
+				!string.IsNullOrEmpty(data.where) &&
+				data.where != "string"
+			)
+			{
+				where = $"WHERE {data.where}";
+			}
+
+			string order = "ORDER BY LivroId ASC";
+			if (
+				data != null &&
+				!string.IsNullOrEmpty(data.order) &&
+				data.order != "string" &&
+				!string.IsNullOrEmpty(data.meaning) &&
+				data.meaning != "string"
+			)
+			{
+				order = $"ORDER BY {data.order} {data.meaning}";
+			}
+
+			int qtd = 0;
+			int qtd_pages = 1;
+			int page = 1;
+			int count = 0;
+
+			string limit = "";
+			if (
+				data != null &&
+				!string.IsNullOrEmpty(data.order) &&
+				data.order != "string" &&
+				!string.IsNullOrEmpty(data.meaning) &&
+				data.meaning != "string" &&
+				data.page != null &&
+				int.TryParse(data.page.ToString(), out var p) &&
+				Convert.ToInt32(data.page.ToString()) > 0
+			)
+			{
+				qtd = Convert.ToInt32(data.qtd.ToString());
+				page = Convert.ToInt32(data.page.ToString());
+
+				var query = db.Cars.AsQueryable();
+				if (
+					data != null &&
+					!string.IsNullOrEmpty(data.where) &&
+					data.where != "string"
+				)
+				{
+					query = query.Where(data.where);
+				}
+				count = await query.CountAsync();
+				if (count > 0 && qtd > 0)
+				{
+					float div = (float)count / qtd;
+					qtd_pages = Convert.ToInt32(Math.Ceiling(div).ToString());
+				}
+
+				int offset = (page - 1) * qtd;
+				limit = $"LIMIT {qtd} OFFSET {offset}";
+			}
+
+			var cars = await db.Cars
+			.FromSqlRaw($"SELECT * FROM Car {where} {order} {limit}")
+			.ToListAsync();
+			return Ok(
+				new
+				{
+					status_id = 1,
+					status = "success",
+					qtd = qtd,
+					page = page,
+					count = count,
+					qtd_pages = qtd_pages,
+					data = cars
+				}
+			);
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(
+				StatusCodes.Status500InternalServerError,
+				ex.Message
+			);
+		}
+	}
+}
+
 [Route("recreate_database")]
 public class recreateDatabase : ControllerBase
 {
-	private readonly MyCar.Context.AppDbContext db;
+	private readonly CarDbContext db;
 
-	public recreateDatabase()
+	public recreateDatabase(CarDbContext _db)
 	{
-		db = new MyCar.Context.AppDbContext();
+		db = _db;
 	}
 
 	[HttpGet]
