@@ -5,6 +5,12 @@ VisualStudioVersion = 17.5.002.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "backend005", "backend005.csproj", "{32B80F28-3A3A-4D44-974E-BDDD9DD98404}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "extras", "extras", "{215DAA94-81DF-4C7B-8972-B9177B18FDE6}"
+	ProjectSection(SolutionItems) = preProject
+		.prettierrc.json = .prettierrc.json
+		README.md = README.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

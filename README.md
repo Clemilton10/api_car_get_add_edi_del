@@ -1,3 +1,159 @@
+# Api de Carro
+
+| Método | Rota                  | Descrição                        |
+| ------ | --------------------- | -------------------------------- |
+| GET    | api/api               | Exibir todos os carros           |
+| POST   | api/api               | Cadastro de um carro             |
+| PUT    | api/api/{id}          | Edição de um carro               |
+| DELETE | api/api/{id}          | Exclusão de um carro             |
+| POST   | api/filter            | where, order, meaning, page, qtd |
+| GET    | api/recreate_database | -                                |
+
+### Criando o projeto
+
+```sh
+dotnet new sln -n api_car
+dotnet new webapi -f net6.0 -n api_car
+dotnet sln add api_car
+```
+
+### Instalando os pacotes
+
+📝 api_car/api_car.csproj
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk.Web">
+	<PropertyGroup>
+		<TargetFramework>net6.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="7.0.13" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.13" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="2.0.3">
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools.DotNet" Version="2.0.3" />
+		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+		<PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="6.5.0" />
+		<PackageReference Include="System.Linq.Dynamic.Core" Version="1.3.5" />
+	</ItemGroup>
+</Project>
+```
+
+### Configurando o servidor e portas
+
+📝 api_car/Properties/launchSettings.json
+
+```json
+{
+	"$schema": "https://json.schemastore.org/launchsettings.json",
+	"profiles": {
+		"backend005": {
+			"commandName": "Project",
+			"dotnetRunMessages": true,
+			"launchBrowser": true,
+			"launchUrl": "swagger",
+			"applicationUrl": "https://localhost:5011;http://localhost:5010",
+			"environmentVariables": {
+				"ASPNETCORE_ENVIRONMENT": "Development"
+			}
+		}
+	}
+}
+```
+
+### Anotando o banco de dados no appsettings.json
+
+📝 api_car/appsettings.json
+
+```json
+{
+	"ConnectionStrings": {
+		"ServerConnection": "Data Source=Cars.db"
+	},
+	"Logging": {
+		"LogLevel": {
+			"Default": "Information",
+			"Microsoft.AspNetCore": "Warning"
+		}
+	},
+	"AllowedHosts": "*"
+}
+```
+
+### Criando a configuração da tabelas
+
+```sh
+cd api_car
+mkdir Context
+touch Context/AppDbContext.cs
+```
+
+📝 api_car/Context/AppDbContext.cs
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using MyCar.Models;
+
+namespace MyCar.Context;
+
+public class CarDbContext : DbContext
+{
+	public CarDbContext(DbContextOptions<CarDbContext> options) : base(options)
+	{
+	}
+
+	public DbSet<Car> Cars { get; set; }
+	protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+	{
+		IConfiguration configuration = new ConfigurationBuilder()
+		.SetBasePath(Directory.GetCurrentDirectory())
+		.AddJsonFile("appsettings.json", true)
+		.Build();
+		optionsBuilder.UseSqlite(configuration.GetConnectionString("ServerConnection"));
+	}
+	protected override void OnModelCreating(ModelBuilder modelBuilder)
+	{
+		modelBuilder.Entity<Car>()
+			.ToTable("Car");
+
+		modelBuilder.Entity<Car>()
+			.HasKey(c => c.Id);
+
+		modelBuilder.Entity<Car>()
+			.Property(c => c.Plate)
+			.HasColumnType("TEXT")
+			.IsRequired()
+			.HasDefaultValue("");
+
+		modelBuilder.Entity<Car>()
+			.Property(c => c.Brand)
+			.HasColumnType("TEXT")
+			.IsRequired()
+			.HasDefaultValue("");
+
+		modelBuilder.Entity<Car>()
+			.Property(c => c.Price)
+			.HasColumnType("REAL")
+			.IsRequired()
+			.HasDefaultValue(0.0m);
+	}
+}
+```
+
+### Configurando as rotas (Controllers)
+
+```sh
+mkdir Controllers
+touch Controllers/CarsController.cs
+```
+
+📝 api_car/Controllers/CarsController.cs
+
+```csharp
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyCar.Context;
@@ -273,3 +429,54 @@ public class recreateDatabase : ControllerBase
 		return Ok(new { success = true });
 	}
 }
+```
+
+### Configurando o modelo (Colunas)
+
+```sh
+mkdir Models
+touch Models/CarModel.cs
+```
+
+📝 api_car/Controllers/CarModel.cs
+
+```csharp
+namespace MyCar.Models;
+
+public class Car
+{
+	public int? Id { get; set; }
+	public string? Plate { get; set; } = string.Empty;
+	public string? Brand { get; set; } = string.Empty;
+	public decimal? Price { get; set; } = 0.0m;
+}
+public class CarPost
+{
+	public string? Plate { get; set; } = string.Empty;
+	public string? Brand { get; set; } = string.Empty;
+	public decimal? Price { get; set; } = 0.0m;
+}
+
+public class CarFilter
+{
+	public string? where { get; set; } = string.Empty;
+	public string? order { get; set; } = "Id";
+	public string? meaning { get; set; } = "ASC";
+	public int? page { get; set; } = 1;
+	public int? qtd { get; set; } = 5;
+}
+```
+
+### Configurando a Program.cs
+
+📝 api_car/Program.cs
+
+```csharp
+// pegando a informacao do banco de dados do appsettings.json
+var connectionString = builder.Configuration.GetConnectionString("ServerConnection");
+
+// Criando o contexto do banco de dados
+builder.Services
+	.AddDbContext<CarDbContext>(
+		options => options.UseSqlite(connectionString));
+```
