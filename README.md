@@ -9,6 +9,8 @@
 | POST   | api/filter            | where, order, meaning, page, qtd |
 | GET    | api/recreate_database | -                                |
 
+> Microsoft.EntityFrameworkCore | Swashbuckle.AspNetCore
+
 ### Criando o projeto
 
 ```sh
